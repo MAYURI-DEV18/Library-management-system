@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LibraStack — Library Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1828;
+    --surface2: #231f35;
+    --border: #2e2a45;
+    --accent: #e8b86d;
+    --accent2: #c97b4b;
+    --green: #4ecb8d;
+    --red: #e05c5c;
+    --blue: #6c8ef5;
+    --text: #e8e6f0;
+    --muted: #7e7a99;
+    --radius: 14px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(108,142,245,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(232,184,109,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 28px 16px;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    transition: transform .3s ease;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 8px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.3px;
+  }
+  .logo-text span { color: var(--accent); }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 10px;
+    margin-bottom: 8px;
+  }
+
+  .nav-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all .2s;
+    border: none; background: none; width: 100%;
+    text-align: left;
+    margin-bottom: 4px;
+  }
+  .nav-btn .icon { font-size: 17px; min-width: 20px; text-align: center; }
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active {
+    background: linear-gradient(135deg, rgba(232,184,109,.15), rgba(201,123,75,.08));
+    color: var(--accent);
+    border: 1px solid rgba(232,184,109,.2);
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    margin-left: 240px;
+    flex: 1;
+    padding: 36px 40px;
+    max-width: calc(100vw - 240px);
+  }
+
+  .page { display: none; animation: fadeUp .35s ease; }
+  .page.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    margin-bottom: 32px;
+  }
+  .page-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 900;
+    line-height: 1.15;
+  }
+  .page-header p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  /* ── DASHBOARD STATS ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 36px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .stat-card:hover { transform: translateY(-3px); border-color: rgba(232,184,109,.3); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    opacity: .06;
+  }
+  .stat-card:nth-child(1)::before { background: var(--accent); }
+  .stat-card:nth-child(2)::before { background: var(--green); }
+  .stat-card:nth-child(3)::before { background: var(--blue); }
+
+  .stat-icon {
+    font-size: 22px;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-card:nth-child(1) .stat-value { color: var(--accent); }
+  .stat-card:nth-child(2) .stat-value { color: var(--green); }
+  .stat-card:nth-child(3) .stat-value { color: var(--blue); }
+  .stat-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* ── RECENT ACTIVITY ── */
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  /* ── FORM ELEMENTS ── */
+  .form-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .input-group {
+    flex: 1;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .input-group label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  input[type="text"],
+  input[type="date"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    width: 100%;
+  }
+  input[type="text"]:focus,
+  input[type="date"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232,184,109,.1);
+  }
+  input[type="date"] { color-scheme: dark; }
+
+  .btn {
+    padding: 11px 22px;
+    border-radius: 9px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #1a1010;
+  }
+  .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+
+  .btn-danger {
+    background: rgba(224,92,92,.15);
+    color: var(--red);
+    border: 1px solid rgba(224,92,92,.25);
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 7px;
+  }
+  .btn-danger:hover { background: rgba(224,92,92,.25); }
+
+  .btn-success {
+    background: rgba(78,203,141,.12);
+    color: var(--green);
+    border: 1px solid rgba(78,203,141,.25);
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 7px;
+  }
+
+  /* ── LISTS ── */
+  .item-list { list-style: none; }
+  .item-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--surface2);
+    border: 1px solid transparent;
+    transition: border-color .2s;
+    font-size: 14px;
+  }
+  .item-list li:hover { border-color: var(--border); }
+
+  .item-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .item-avatar {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .item-avatar.book { background: rgba(232,184,109,.15); }
+  .item-avatar.member { background: rgba(108,142,245,.15); }
+  .item-avatar.issued { background: rgba(78,203,141,.15); }
+
+  .item-name { font-weight: 500; }
+  .item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .badge-warn { background: rgba(232,184,109,.15); color: var(--accent); }
+  .badge-ok   { background: rgba(78,203,141,.12); color: var(--green); }
+  .badge-late { background: rgba(224,92,92,.12); color: var(--red); }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty p { font-size: 14px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--green);
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    z-index: 999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all .3s cubic-bezier(.34,1.56,.64,1);
+    max-width: 320px;
+  }
+  #toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  #toast.error { border-left-color: var(--red); }
+  #toast.warn  { border-left-color: var(--accent); }
+
+  /* ── SEARCH ── */
+  .search-bar {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .search-bar input {
+    padding-left: 40px;
+  }
+  .search-bar::before {
+    content: '🔍';
+    position: absolute;
+    left: 13px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  /* ── MOBILE TOGGLE ── */
+  .menu-toggle {
+    display: none;
+    position: fixed;
+    top: 16px; left: 16px;
+    z-index: 200;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--text);
+  }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* ── ISSUE TABLE ── */
+  .issue-record {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 10px;
+    border: 1px solid transparent;
+    transition: border-color .2s;
+    font-size: 13px;
+  }
+  .issue-record:hover { border-color: var(--border); }
+  .issue-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .issue-book-name { font-weight: 600; font-size: 14px; }
+  .issue-details { display: flex; gap: 20px; color: var(--muted); flex-wrap: wrap; }
+  .issue-detail { display: flex; align-items: center; gap: 5px; }
+
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; padding: 20px; max-width: 100vw; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .menu-toggle { display: block; }
+    .page-header { padding-top: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-icon">📚</div>
+      <div class="logo-text">Libra<span>Stack</span></div>
+    </div>
+
+    <div class="nav-label">Navigation</div>
+    <button class="nav-btn active" onclick="goTo('dashboard', this)">
+      <span class="icon">🏠</span> Dashboard
+    </button>
+    <button class="nav-btn" onclick="goTo('books', this)">
+      <span class="icon">📖</span> Books
+    </button>
+    <button class="nav-btn" onclick="goTo('members', this)">
+      <span class="icon">👥</span> Members
+    </button>
+    <button class="nav-btn" onclick="goTo('issue', this)">
+      <span class="icon">📤</span> Issue Book
+    </button>
+    <button class="nav-btn" onclick="goTo('returns', this)">
+      <span class="icon">↩️</span> Returns
+    </button>
+
+    <div class="sidebar-footer">
+      LibraStack v2.0<br>Library Management
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1>Good day, Librarian 👋</h1>
+        <p>Here's what's happening in your library today.</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-icon">📚</span>
+          <div class="stat-value" id="dash-books">0</div>
+          <div class="stat-label">Available Books</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">👥</span>
+          <div class="stat-value" id="dash-members">0</div>
+          <div class="stat-label">Total Members</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📤</span>
+          <div class="stat-value" id="dash-issued">0</div>
+          <div class="stat-label">Books Issued</div>
+        </div>
+      </div>
+
+      <div class="section-title">Recently Added Books</div>
+      <div class="card">
+        <ul class="item-list" id="dash-recent-books"></ul>
+      </div>
+
+      <div class="section-title">Recent Issuances</div>
+      <div class="card">
+        <ul class="item-list" id="dash-recent-issued"></ul>
+      </div>
+    </div>
+
+    <!-- ── BOOKS ── -->
+    <div class="page" id="page-books">
+      <div class="page-header">
+        <h1>Books <span style="color:var(--accent)">Catalog</span></h1>
+        <p>Add and manage all books in your library.</p>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">Add New Book</div>
+        <div class="form-row">
+          <div class="input-group" style="flex:2">
+            <label>Book Title</label>
+            <input type="text" id="bookTitle" placeholder="e.g. The Great Gatsby">
+          </div>
+          <div class="input-group">
+            <label>Author</label>
+            <input type="text" id="bookAuthor" placeholder="e.g. F. Scott Fitzgerald">
+          </div>
+          <div class="input-group" style="flex:0;justify-content:flex-end;">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="addBook()">＋ Add Book</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">All Books</div>
+        <div class="search-bar">
+          <input type="text" id="bookSearch" placeholder="Search books..." oninput="renderBooks()">
+        </div>
+        <ul class="item-list" id="bookList"></ul>
+      </div>
+    </div>
+
+    <!-- ── MEMBERS ── -->
+    <div class="page" id="page-members">
+      <div class="page-header">
+        <h1>Member <span style="color:var(--blue)">Directory</span></h1>
+        <p>Register and manage library members.</p>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px">Register New Member</div>
+        <div class="form-row">
+          <div class="input-group" style="flex:2">
+            <label>Full Name</label>
+            <input type="text" id="memberName" placeholder="e.g. Riya Sharma">
+          </div>
+          <div class="input-group">
+            <label>Contact / ID</label>
+            <input type="text" id="memberContact" placeholder="e.g. 9876543210">
+          </div>
+          <div class="input-group" style="flex:0;justify-content:flex-end;">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="addMember()">＋ Add Member</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">All Members</div>
+        <div class="search-bar">
+          <input type="text" id="memberSearch" placeholder="Search members..." oninput="renderMembers()">
+        </div>
+        <ul class="item-list" id="memberList"></ul>
+      </div>
+    </div>
+
+    <!-- ── ISSUE ── -->
+    <div class="page" id="page-issue">
+      <div class="page-header">
+        <h1>Issue <span style="color:var(--green)">Book</span></h1>
+        <p>Assign a book to a registered member.</p>
+      </div>
+
+      <div class="card">
+        <div class="form-row">
+          <div class="input-group">
+            <label>Book Title</label>
+            <input type="text" id="issueBook" placeholder="Enter exact book title">
+          </div>
+          <div class="input-group">
+            <label>Member Name</label>
+            <input type="text" id="issueMember" placeholder="Enter member name">
+          </div>
+          <div class="input-group">
+            <label>Issue Date</label>
+            <input type="date" id="issueDate">
+          </div>
+          <div class="input-group" style="flex:0;justify-content:flex-end;">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="issueBook()">Issue →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Issued Records</div>
+        <div id="issueList"></div>
+      </div>
+    </div>
+
+    <!-- ── RETURNS ── -->
+    <div class="page" id="page-returns">
+      <div class="page-header">
+        <h1>Book <span style="color:var(--red)">Returns</span></h1>
+        <p>Process book returns and track overdue items.</p>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Currently Issued</div>
+        <div id="returnList"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── STATE ──
+let books   = JSON.parse(localStorage.getItem('ls_books'))   || [];
+let members = JSON.parse(localStorage.getItem('ls_members')) || [];
+let issued  = JSON.parse(localStorage.getItem('ls_issued'))  || [];
+
+// ── SAVE ──
+function save() {
+  localStorage.setItem('ls_books',   JSON.stringify(books));
+  localStorage.setItem('ls_members', JSON.stringify(members));
+  localStorage.setItem('ls_issued',  JSON.stringify(issued));
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type === 'error' ? 'error' : type === 'warn' ? 'warn' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// ── NAVIGATION ──
+function goTo(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'books')     renderBooks();
+  if (page === 'members')   renderMembers();
+  if (page === 'issue')     renderIssued();
+  if (page === 'returns')   renderReturns();
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ── SET TODAY ──
+window.onload = () => {
+  const today = new Date().toISOString().split('T')[0];
+  const el = document.getElementById('issueDate');
+  if (el) el.value = today;
+  renderDashboard();
+};
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  document.getElementById('dash-books').textContent   = books.length;
+  document.getElementById('dash-members').textContent = members.length;
+  document.getElementById('dash-issued').textContent  = issued.length;
+
+  // Recent books (last 5)
+  const rb = document.getElementById('dash-recent-books');
+  const recentBooks = [...books].slice(-5).reverse();
+  if (!recentBooks.length) {
+    rb.innerHTML = emptyHtml('No books added yet.');
+  } else {
+    rb.innerHTML = recentBooks.map(b =>
+      `<li>
+        <div class="item-info">
+          <div class="item-avatar book">📖</div>
+          <div>
+            <div class="item-name">${esc(b.title)}</div>
+            <div class="item-meta">${esc(b.author || 'Unknown author')}</div>
+          </div>
+        </div>
+        <span class="badge badge-ok">Available</span>
+      </li>`
+    ).join('');
+  }
+
+  // Recent issued (last 5)
+  const ri = document.getElementById('dash-recent-issued');
+  const recentIssued = [...issued].slice(-5).reverse();
+  if (!recentIssued.length) {
+    ri.innerHTML = emptyHtml('No books issued yet.');
+  } else {
+    ri.innerHTML = recentIssued.map(i => {
+      const late = isLate(i.dueDate);
+      return `<li>
+        <div class="item-info">
+          <div class="item-avatar issued">📤</div>
+          <div>
+            <div class="item-name">${esc(i.book)}</div>
+            <div class="item-meta">→ ${esc(i.member)} · Due: ${i.dueDate}</div>
+          </div>
+        </div>
+        <span class="badge ${late ? 'badge-late' : 'badge-warn'}">${late ? 'Overdue' : 'Issued'}</span>
+      </li>`;
+    }).join('');
+  }
+}
+
+// ── BOOKS ──
+function addBook() {
+  const title  = document.getElementById('bookTitle').value.trim();
+  const author = document.getElementById('bookAuthor').value.trim();
+  if (!title) { showToast('Please enter a book title.', 'warn'); return; }
+  books.push({ title, author });
+  save();
+  document.getElementById('bookTitle').value  = '';
+  document.getElementById('bookAuthor').value = '';
+  renderBooks();
+  showToast(`"${title}" added to catalog ✓`);
+}
+
+function removeBook(idx) {
+  const name = books[idx].title;
+  books.splice(idx, 1);
+  save();
+  renderBooks();
+  showToast(`"${name}" removed.`, 'warn');
+}
+
+function renderBooks() {
+  const q    = (document.getElementById('bookSearch')?.value || '').toLowerCase();
+  const list = document.getElementById('bookList');
+  if (!list) return;
+  const filtered = books.map((b, i) => ({ ...b, i })).filter(b =>
+    b.title.toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q)
+  );
+  if (!filtered.length) { list.innerHTML = emptyHtml('No books found.'); return; }
+  list.innerHTML = filtered.map(b =>
+    `<li>
+      <div class="item-info">
+        <div class="item-avatar book">📖</div>
+        <div>
+          <div class="item-name">${esc(b.title)}</div>
+          <div class="item-meta">${esc(b.author || 'No author listed')}</div>
+        </div>
+      </div>
+      <button class="btn btn-danger" onclick="removeBook(${b.i})">🗑 Remove</button>
+    </li>`
+  ).join('');
+}
+
+// ── MEMBERS ──
+function addMember() {
+  const name    = document.getElementById('memberName').value.trim();
+  const contact = document.getElementById('memberContact').value.trim();
+  if (!name) { showToast('Please enter a member name.', 'warn'); return; }
+  if (members.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+    showToast('Member already exists!', 'error'); return;
+  }
+  members.push({ name, contact });
+  save();
+  document.getElementById('memberName').value    = '';
+  document.getElementById('memberContact').value = '';
+  renderMembers();
+  showToast(`${name} registered as member ✓`);
+}
+
+function removeMember(idx) {
+  const name = members[idx].name;
+  members.splice(idx, 1);
+  save();
+  renderMembers();
+  showToast(`${name} removed.`, 'warn');
+}
+
+function renderMembers() {
+  const q    = (document.getElementById('memberSearch')?.value || '').toLowerCase();
+  const list = document.getElementById('memberList');
+  if (!list) return;
+  const filtered = members.map((m, i) => ({ ...m, i })).filter(m =>
+    m.name.toLowerCase().includes(q)
+  );
+  if (!filtered.length) { list.innerHTML = emptyHtml('No members found.'); return; }
+  list.innerHTML = filtered.map(m => {
+    const issuedCount = issued.filter(i => i.member === m.name).length;
+    return `<li>
+      <div class="item-info">
+        <div class="item-avatar member">👤</div>
+        <div>
+          <div class="item-name">${esc(m.name)}</div>
+          <div class="item-meta">${esc(m.contact || 'No contact')} · ${issuedCount} book(s) issued</div>
+        </div>
+      </div>
+      <button class="btn btn-danger" onclick="removeMember(${m.i})">🗑 Remove</button>
+    </li>`;
+  }).join('');
+}
+
+// ── ISSUE ──
+function issueBook() {
+  const bookName   = document.getElementById('issueBook').value.trim();
+  const memberName = document.getElementById('issueMember').value.trim();
+  const date       = document.getElementById('issueDate').value;
+
+  if (!bookName || !memberName || !date) {
+    showToast('Please fill all fields.', 'warn'); return;
+  }
+
+  const memberIdx = members.findIndex(m => m.name.toLowerCase() === memberName.toLowerCase());
+  if (memberIdx === -1) {
+    showToast('Member not found! Register them first.', 'error'); return;
+  }
+
+  const bookIdx = books.findIndex(b => b.title.toLowerCase() === bookName.toLowerCase());
+  if (bookIdx === -1) {
+    showToast('Book not found or already issued!', 'error'); return;
+  }
+
+  const book = books[bookIdx];
+  books.splice(bookIdx, 1);
+
+  const due = new Date(date);
+  due.setDate(due.getDate() + 14); // 2-week lending period
+
+  issued.push({
+    book:      book.title,
+    author:    book.author || '',
+    member:    members[memberIdx].name,
+    issueDate: date,
+    dueDate:   due.toISOString().split('T')[0]
+  });
+
+  save();
+  document.getElementById('issueBook').value   = '';
+  document.getElementById('issueMember').value = '';
+  renderIssued();
+  renderDashboard();
+  showToast(`"${book.title}" issued to ${members[memberIdx].name} ✓`);
+}
+
+function renderIssued() {
+  const container = document.getElementById('issueList');
+  if (!container) return;
+  if (!issued.length) { container.innerHTML = emptyHtml('No books have been issued yet.'); return; }
+  container.innerHTML = [...issued].reverse().map((item, ri) => {
+    const realIdx = issued.length - 1 - ri;
+    const late = isLate(item.dueDate);
+    return `<div class="issue-record">
+      <div class="issue-top">
+        <div class="issue-book-name">📖 ${esc(item.book)}</div>
+        <span class="badge ${late ? 'badge-late' : 'badge-ok'}">${late ? '⚠ Overdue' : '✓ Active'}</span>
+      </div>
+      <div class="issue-details">
+        <div class="issue-detail">👤 ${esc(item.member)}</div>
+        <div class="issue-detail">📅 Issued: ${item.issueDate}</div>
+        <div class="issue-detail">⏰ Due: ${item.dueDate}</div>
+        ${item.author ? `<div class="issue-detail">✍ ${esc(item.author)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RETURNS ──
+function returnBook(idx) {
+  const item = issued[idx];
+  books.push({ title: item.book, author: item.author || '' });
+  issued.splice(idx, 1);
+  save();
+  renderReturns();
+  renderDashboard();
+  showToast(`"${item.book}" returned successfully ✓`);
+}
+
+function renderReturns() {
+  const container = document.getElementById('returnList');
+  if (!container) return;
+  if (!issued.length) { container.innerHTML = emptyHtml('No books currently issued.'); return; }
+  container.innerHTML = issued.map((item, i) => {
+    const late = isLate(item.dueDate);
+    return `<div class="issue-record">
+      <div class="issue-top">
+        <div class="issue-book-name">📖 ${esc(item.book)}</div>
+        <button class="btn btn-success" onclick="returnBook(${i})">↩ Return</button>
+      </div>
+      <div class="issue-details">
+        <div class="issue-detail">👤 ${esc(item.member)}</div>
+        <div class="issue-detail">📅 Issued: ${item.issueDate}</div>
+        <div class="issue-detail ${late ? 'badge-late' : ''}">⏰ Due: ${item.dueDate}${late ? ' — OVERDUE' : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── UTILS ──
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function isLate(dueDate) {
+  return new Date(dueDate) < new Date(new Date().toDateString());
+}
+
+function emptyHtml(msg) {
+  return `<div class="empty"><div class="empty-icon">🌿</div><p>${msg}</p></div>`;
+}
+</script>
+</body>
+</html>
